@@ -46,11 +46,12 @@ void buttons_init(void)
 }
 #endif
 
-static char data[LEDS_CNT + 2] = {MAGIC_BEGIN, 0, 0, 0, 0, 0, MAGIC_END};
+static char data[LEDS_CNT + 3] = {MAGIC_BEGIN, 0, 0, 0, 0, 0, 0xff, MAGIC_END};
 
 void main(void)
 {
 	int i;
+	unsigned char crc;
 
 	WDTCTL = WDTPW + WDTHOLD;                 // Stop WDT
 
@@ -67,10 +68,15 @@ void main(void)
 		led_toggle();
 		themps_update();
 
-		for (i = 0; i<LEDS_CNT; i++)
-			data[i+1] = t[i];
+		crc = MAGIC_BEGIN;
 
-		uart_data(data, LEDS_CNT + 2);
+		for (i = 0; i<LEDS_CNT; i++)
+		{
+			data[i+1] = t[i];
+			crc += t[i];
+		}
+		data[i+1] = crc;
+		uart_data(data, LEDS_CNT + 3);
 
 		_BIS_SR(LPM0_bits + GIE);
 	}

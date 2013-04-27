@@ -6,42 +6,20 @@
 #include <msp430g2553.h>
 #include "config.h"
 #include <common.h>
-#include <thermistor.h>
-#include <leds.h>
-#include <uart.h>
-#include <string.h>
+#include "rgb.h"
+//#include <thermistor.h>
+//#include <leds.h>
+//#include <uart.h>
+//#include <string.h>
 
-#define L(port, pin) (1<<((port-1)*8 + pin))
-const int rgbs[LEDS_CNT][3] = {
-		{L(2,5), L(2,4), L(2,3)},
-		{L(2,2), L(1,7), L(1,6)},
-		{L(1,5), L(2,0), L(2,1)},
-		{L(1,2), L(1,3), L(1,4)},
-		{L(2,7), L(2,6), L(1,0)},
-};
 
-typedef enum {
-	CLR_R = 0,
-	CLR_G = 1,
-	CLR_B = 2,
-	CLR_OFF = 3
-} color_t;
+static char packet[LEDS_CNT+1]; /* Packet received via UART */
 
-enum {
-	P1IDX = 0,
-	P2IDX = 1
-};
+static signed char rcv_pos;
+static char is_ready;
 
-typedef union {
-	int word;
-	char ports[2];
-} port_map_t;
-
-static port_map_t rgb_ring[10];
-static char rgb_program[LEDS_CNT][3]; /* color weights */
-static char data[LEDS_CNT]; /* Packet received via UART */
-static int rcv_pos;
 static unsigned int timeout;
+static unsigned int jiffies;
 
 void timer_init(void)
 {
@@ -64,109 +42,30 @@ void timer_init(void)
 	 */
     TA1CTL = TASSEL_2 | ID_3 | MC_1 | TAIE;
     TA1CCR0 = 12500; /* result - 10 Hz*/
+
+    jiffies = 0;
 }
 
-/* Transform rgb_program to rgb_ring */
-static void leds_update(void)
+static int is_packet_correct(void)
 {
-	unsigned int j, ring_idx, led_idx;
-	color_t clr;
-	port_map_t accum[10];
+	char *iter= packet;
+	int i = LEDS_CNT;
+	char crc = MAGIC_BEGIN;
 
-	memset(accum, 0, sizeof(accum));
+	is_ready = 0; /* reset flag */
 
-	for (led_idx = 0; led_idx < LEDS_CNT; led_idx++)
-	{
-		ring_idx = 0;
-		for (clr = CLR_R; clr < CLR_OFF; clr ++)
-		{
-			j = rgb_program[led_idx][clr] & 0xf;
-			while (j--)
-				accum[ring_idx++].word |= rgbs[led_idx][clr];
-		}
-	}
+	while (i--)
+		crc += *iter++;
 
-	for (ring_idx = 0; ring_idx < 10; ring_idx++)
-		rgb_ring[ring_idx].word = ~accum[ring_idx].word;
+	return crc == *iter;
 }
-
-static void led_setup(int idx, unsigned char* weights)
-{
-	color_t color;
-
-	for (color = CLR_R; color <= CLR_B; color++)
-		rgb_program[idx][color] = weights[color];
-}
-
-static unsigned char t2b(char temp)
-{
-	if (temp <= 25)
-		return 10;
-	if (temp <= 35)
-		return 35 - temp;
-	return 0;
-}
-
-static unsigned char t2g(char temp)
-{
-	if (temp <= 25)
-		return 0;
-	if (temp <= 35)
-		return temp - 25;
-	if (temp <= 45)
-		return 45 - temp;
-	return 0;
-}
-
-static unsigned char t2r(char temp)
-{
-	if (temp <= 35)
-		return 0;
-	if (temp <= 45)
-		return temp - 35;
-	if (temp <= 55)
-		return 10;
-	if (temp <= 65)
-		return (15 << 4) + 10;
-	if (temp <= 75)
-		return (7 << 4) + 10;
-	if (temp <= 85)
-		return (3 << 4) + 10;
-	return (1 << 4) + 10;
-}
-static void led_temperature(int led_idx, char temp)
-{
-	unsigned char weights[3];
-
-	weights[CLR_R] = t2r(temp);
-	weights[CLR_G] = t2g(temp);
-	weights[CLR_B] = t2b(temp);
-	led_setup(led_idx, weights);
-}
-
-void rgb_init(void)
-{
-	P2DIR |= 0xff;			// OUT
-	P2SEL &= ~0xff;			// GPIO mode
-	P2SEL2 &= ~0xff;		// GPIO mode
-	P2REN &= ~0xff;
-	P2OUT &= ~0xff;			// Switch ON
-
-	P1DIR |= 0xfd;			// OUT
-	P1SEL &= ~0xfd;			// GPIO mode
-	P1SEL2 &= ~0xfd;		// GPIO mode
-	P1REN &= ~0xfd;
-	P1OUT &= ~0xff;			// Switch ON
-}
-
-static unsigned char blinking[LEDS_CNT];
 
 void main(void)
 {
-	int led;
-	color_t clr;
-	unsigned int sum, sum_old = 12345;
-	unsigned char weights[3] = {0,0,0};
+//	int led;
+//	color_t clr;
+//	unsigned int sum, sum_old = 12345;
+//	unsigned char weights[3] = {0,0,0};
 
 	WDTCTL = WDTPW + WDTHOLD;                 // Stop WDT
 
@@ -179,12 +78,28 @@ void main(void)
 	rgb_init();
 
 	rcv_pos = -1;
-	clr = CLR_R;
-	weights[clr] = 1;
+	is_ready = 0;
+//	clr = CLR_R;
+//	weights[clr] = 1;
 	for (;;)
 	{
+		if (is_ready && is_packet_correct())
+		{
+			rgb_update(packet);
+			timeout = 0;
+		}
+
+		if (timeout < 100)
+			rgb_blinking();
+		else
+			rgb_nosync();
+
+
+#if 0
 		if(timeout < 2)
 		{
+			rgb_update(temps);
+#if 0
 			sum = 0;
 			for (led = 0; led < LEDS_CNT; led++)
 				sum += data[led];
@@ -200,9 +115,12 @@ void main(void)
 				}
 				leds_update();
 			}
+#endif
 		}
 		if (timeout < 20)
 		{
+			rgb_blinking();
+#if 0
 			int need_update = 0;
 
 			for (led = 0; led < LEDS_CNT; led++)
@@ -218,9 +136,12 @@ void main(void)
 			}
 			if (need_update)
 				leds_update();
+#endif
 		}
 		else
 		{
+			rgb_nosync();
+#if 0
 			if (led >= LEDS_CNT)
 				led = 0;
 
@@ -239,35 +160,13 @@ void main(void)
 
 			led_setup(led, weights);
 			leds_update();
+#endif
 		}
-
+#endif
 		_BIS_SR(LPM0_bits + GIE);
 	}
 }
 
-#pragma vector=TIMER0_A1_VECTOR
-__interrupt void rgb_timer(void)
-{
-	static int idx;
-
-	switch(TA0IV)
-	{
-	case 10: /* TAIFG, timer overflow */
-		break;
-	case 2: /* TACCR1 CCIFG, compare 1 */
-	case 4: /* TACCR2 CCIFG, compare 2 */
-	default: /* impossible! */
-		for (;;);
-	}
-
-	P2OUT = rgb_ring[idx].ports[1];
-	P1OUT = rgb_ring[idx].ports[0];
-
-	if (++idx >= 10)
-		idx = 0;
-
-//	_BIC_SR_IRQ(LPM0_bits);
-}
 
 #pragma vector=TIMER1_A1_VECTOR
 __interrupt void main_timer(void)
@@ -283,6 +182,7 @@ __interrupt void main_timer(void)
 	}
 
 	timeout++;
+	jiffies++;
 
 	_BIC_SR_IRQ(LPM0_bits);
 }
@@ -292,6 +192,12 @@ __interrupt void main_timer(void)
 __interrupt void uscib0rx_isr (void)
 {
 	unsigned char byte;
+	static unsigned int timestamp;
+
+	if (jiffies - timestamp > 1)
+		rcv_pos = -1;
+
+	timestamp = jiffies;
 
 	byte = UCA0RXBUF;
 	if (rcv_pos == -1)
@@ -299,14 +205,14 @@ __interrupt void uscib0rx_isr (void)
 		if (byte == MAGIC_BEGIN)
 			rcv_pos++;
 	}
-	else if (rcv_pos == LEDS_CNT)
+	else if (rcv_pos == LEDS_CNT+1)
 	{
 		if (byte == MAGIC_END)
-		{
-			timeout = 0;
-			rcv_pos = -1;
-		}
+			is_ready = 1;
+
+//		timeout = 0;
+		rcv_pos = -1;
 	}
 	else
-		data[rcv_pos++] =  byte;
+		packet[rcv_pos++] =  byte;
 }
