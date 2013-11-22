@@ -1,0 +1,20 @@
+
+**** Build of configuration Debug for project boiler_ind_upper ****
+
+C:\ti\ccsv5\utils\bin\gmake -k all 
+'Building file: D:/Igor/Ti/workspaces/ws_boiler_indicator/common/leds.c'
+'Invoking: MSP430 Compiler'
+"C:/ti/ccsv5/tools/compiler/msp430_4.1.1/bin/cl430" -vmsp --abi=eabi -g --include_path="C:/ti/ccsv5/ccs_base/msp430/include" --include_path="D:/Igor/Ti/workspaces/ws_boiler_indicator/boiler_ind_upper" --include_path="D:/Igor/Ti/workspaces/ws_boiler_indicator/common" --include_path="C:/ti/ccsv5/tools/compiler/msp430_4.1.1/include" --advice:power=all --define=__MSP430G2553__ --diag_warning=225 --display_error_number --diag_wrap=off --printf_support=minimal --preproc_with_compile --preproc_dependency="common/leds.pp" --obj_directory="common"  "D:/Igor/Ti/workspaces/ws_boiler_indicator/common/leds.c"
+"D:/Igor/Ti/workspaces/ws_boiler_indicator/common/leds.c", line 57: remark #1544-D: (ULP 13.1) Detected loop counting up. Recommend loops count down as detecting zeros is easier
+"D:/Igor/Ti/workspaces/ws_boiler_indicator/common/leds.c", line 61: remark #1527-D: (ULP 2.1) Detected SW delay loop using empty loop. Recommend using a timer module instead
+'Finished building: D:/Igor/Ti/workspaces/ws_boiler_indicator/common/leds.c'
+' '
+'Building target: boiler_ind_upper.out'
+'Invoking: MSP430 Linker'
+"C:/ti/ccsv5/tools/compiler/msp430_4.1.1/bin/cl430" -vmsp --abi=eabi -g --advice:power=all --define=__MSP430G2553__ --diag_warning=225 --display_error_number --diag_wrap=off --printf_support=minimal -z --stack_size=80 -m"boiler_ind_upper.map" --heap_size=80 -i"C:/ti/ccsv5/ccs_base/msp430/include" -i"C:/ti/ccsv5/tools/compiler/msp430_4.1.1/lib" -i"C:/ti/ccsv5/tools/compiler/msp430_4.1.1/include" --reread_libs --warn_sections --display_error_number --diag_wrap=off --rom_model -o "boiler_ind_upper.out"  "./common/uart.obj" "./common/thermistor.obj" "./common/leds.obj" "./common/irq_stubs.obj" "./common/common.obj" "./main.obj" -l"libc.a" "../lnk_msp430g2553.cmd" 
+<Linking>
+remark #10372-D: (ULP 4.1) Detected uninitialized Port 3 in this project. Recommend initializing all unused ports to eliminate wasted current consumption on unused pins.
+'Finished building target: boiler_ind_upper.out'
+' '
+
+**** Build Finished ****
