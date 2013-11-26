@@ -8,6 +8,7 @@
 
 /* UART section */
 #define UART_BAUDRATE 300
+//#define UART_BAUDRATE 9600
 
 //#define REPORT_SZ
 
