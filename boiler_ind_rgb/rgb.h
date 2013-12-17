@@ -9,7 +9,7 @@
 #define _RGB_H_
 
 void rgb_init(void);
-void rgb_update(char *temps);
+void rgb_update(unsigned char *temps);
 void rgb_blinking(void);
 void rgb_nosync(void);
 

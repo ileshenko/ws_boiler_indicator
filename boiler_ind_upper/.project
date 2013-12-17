@@ -86,5 +86,10 @@
 			<type>2</type>
 			<locationURI>WORKSPACE_LOC/common</locationURI>
 		</link>
+		<link>
+			<name>msp430_lib</name>
+			<type>2</type>
+			<locationURI>WORKSPACE_LOC/msp430_lib</locationURI>
+		</link>
 	</linkedResources>
 </projectDescription>

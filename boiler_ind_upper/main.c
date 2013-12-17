@@ -9,11 +9,12 @@
  * main.c
  */
 #include <msp430g2553.h>
-#include "config.h"
-#include "../common/common.h"
+#include "config_lib.h"
+//#include "../common/common.h"
+#include <msplib_common.h>
 #include <thermistor.h>
 #include <leds.h>
-#include <uart.h>
+#include <x10.h>
 
 unsigned long jiffies;
 
@@ -26,7 +27,7 @@ void timer_init(void)
 	 * Interrupt enable TAIE
 	 */
     TA0CTL = TASSEL_2 | ID_3 | MC_3 | TAIE;
-    TA0CCR0 = 0xF424; /* 125 kHz / 2 */
+    TA0CCR0 = 0xF424; /* HZ = 1 125 kHz / 2 */
 
     jiffies = 0;
 }
@@ -46,7 +47,7 @@ void buttons_init(void)
 }
 #endif
 
-static char data[LEDS_CNT + 3] = {MAGIC_BEGIN, 0, 0, 0, 0, 0, 0xff, MAGIC_END};
+static unsigned char data[LEDS_CNT + 2] = {MAGIC_BEGIN, 0, 0, 0, 0, 0, 0xff};
 
 void main(void)
 {
@@ -58,7 +59,7 @@ void main(void)
 	default_state();
 	clock_init(); /* DCO, MCLK and SMCLK - 1MHz */
 	timer_init();
-	uart_init();
+	x10tx_init();
 	leds_init();
 	thermistor_init();
 
@@ -72,11 +73,12 @@ void main(void)
 
 		for (i = 0; i<LEDS_CNT; i++)
 		{
-			data[i+1] = t[i];
-			crc += t[i];
+//			data[i+1] = t[i];
+			data[i+1] = 20 + 10 * i;
+			crc += data[i+1];
 		}
 		data[i+1] = crc;
-		uart_data(data, LEDS_CNT + 3);
+		x10tx_putn(data, sizeof(data));
 
 		_BIS_SR(LPM0_bits + GIE);
 	}
@@ -98,16 +100,4 @@ __interrupt void main_timer(void)
 	jiffies++;
 
 	_BIC_SR_IRQ(LPM0_bits);
-}
-
-#pragma vector=TIMER1_A1_VECTOR
-__interrupt void timer1_Stub(void)
-{
-	for (;;);
-}
-
-#pragma vector = USCIAB0RX_VECTOR
-__interrupt void uscib0rx_Stub (void)
-{
-	for (;;);
 }

@@ -4,8 +4,12 @@
  * main.c
  */
 #include <msp430g2553.h>
-#include "config.h"
-#include <common.h>
+#include "config_lib.h"
+//#include "config.h"
+//#include <common.h>
+#include <msplib_common.h>
+#include <x10.h>
+
 #include "rgb.h"
 //#include <thermistor.h>
 //#include <leds.h>
@@ -13,17 +17,18 @@
 //#include <string.h>
 
 
-static char packet[LEDS_CNT+1]; /* Packet received via UART */
+static unsigned char packet[LEDS_CNT+1]; /* Packet received via UART */
 
-static signed char rcv_pos;
+//static signed char rcv_pos;
 static char is_ready;
 
 static unsigned int timeout;
 static unsigned int jiffies;
+unsigned int ms_cnt;
 
 void timer_init(void)
 {
-	/* Timer A */
+	/* Timer A (RGB)*/
 	/* Source SMCLK (1MHz) TASSEL_2
 	 * divider 8 (125 kHz) ID_3
 	 * Mode Up to CCR0 MC_1
@@ -32,8 +37,9 @@ void timer_init(void)
 	 */
     TA0CTL = TASSEL_2 | ID_3 | MC_1 | TAIE;
     TA0CCR0 = 125; /* result - 1 kHz*/
+    ms_cnt = 0;
 
-	/* Timer CLR_B */
+	/* Timer B (main clock)*/
 	/* Source SMCLK (1MHz) TASSEL_2
 	 * divider 8 (125 kHz) ID_3
 	 * Mode Up to CCR0 MC_1
@@ -41,14 +47,14 @@ void timer_init(void)
 	 * Interrupt enable TAIE
 	 */
     TA1CTL = TASSEL_2 | ID_3 | MC_1 | TAIE;
-    TA1CCR0 = 12500; /* result - 10 Hz*/
+    TA1CCR0 = 12500; /* result - 10 Hz */
 
     jiffies = 0;
 }
 
 static int is_packet_correct(void)
 {
-	char *iter= packet;
+	unsigned char *iter= packet;
 	int i = LEDS_CNT;
 	char crc = MAGIC_BEGIN;
 
@@ -58,6 +64,32 @@ static int is_packet_correct(void)
 		crc += *iter++;
 
 	return crc == *iter;
+}
+
+void x10rx_cb(unsigned char ch)
+{
+	static signed char idx;
+	static unsigned int old_jiffies;
+
+	/* delay more than 200 ms means, we begin to receive new packet */
+	if (jiffies - old_jiffies  >= 2)
+		idx = -1;
+
+	old_jiffies = jiffies;
+
+	if (idx == -1)
+	{
+		if (ch == MAGIC_BEGIN)
+			idx++;
+		return;
+	}
+	packet[idx++] = ch;
+
+	if (idx >= LEDS_CNT+1) /* packet includes CRC byte */
+	{
+		is_ready = 1;
+		idx = -1;
+	}
 }
 
 void main(void)
@@ -72,12 +104,11 @@ void main(void)
 	default_state();
 	clock_init(); /* DCO, MCLK and SMCLK - 1MHz */
 	timer_init();
-	uart_init();
-	IE2 |= UCA0RXIE;
+	x10rx_init(x10rx_cb);
 
 	rgb_init();
 
-	rcv_pos = -1;
+//	rcv_pos = -1;
 	is_ready = 0;
 //	clr = CLR_R;
 //	weights[clr] = 1;
@@ -93,7 +124,6 @@ void main(void)
 			rgb_blinking();
 		else
 			rgb_nosync();
-
 
 #if 0
 		if(timeout < 2)
@@ -167,7 +197,6 @@ void main(void)
 	}
 }
 
-
 #pragma vector=TIMER1_A1_VECTOR
 __interrupt void main_timer(void)
 {
@@ -187,32 +216,3 @@ __interrupt void main_timer(void)
 	_BIC_SR_IRQ(LPM0_bits);
 }
 
-
-#pragma vector = USCIAB0RX_VECTOR
-__interrupt void uscib0rx_isr (void)
-{
-	unsigned char byte;
-	static unsigned int timestamp;
-
-	if (jiffies - timestamp > 1)
-		rcv_pos = -1;
-
-	timestamp = jiffies;
-
-	byte = UCA0RXBUF;
-	if (rcv_pos == -1)
-	{
-		if (byte == MAGIC_BEGIN)
-			rcv_pos++;
-	}
-	else if (rcv_pos == LEDS_CNT+1)
-	{
-		if (byte == MAGIC_END)
-			is_ready = 1;
-
-//		timeout = 0;
-		rcv_pos = -1;
-	}
-	else
-		packet[rcv_pos++] =  byte;
-}

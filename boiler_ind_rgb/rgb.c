@@ -5,13 +5,16 @@
  *      Author: Igor
  */
 #include <msp430g2553.h>
-#include "config.h"
+//#include "config.h"
+#include "rgb.h"
 #include <common.h>
+//#include <x10.h>
 //#include <thermistor.h>
 //#include <leds.h>
 //#include <uart.h>
 #include <string.h>
 
+extern unsigned int ms_cnt;
 
 #define L(port, pin) (1<<((port-1)*8 + pin))
 const int rgbs[LEDS_CNT][3] = {
@@ -44,7 +47,6 @@ static char rgb_program[LEDS_CNT][3]; /* color weights */
 static unsigned char temp[LEDS_CNT];
 static char is_synced;
 static unsigned char blinking[LEDS_CNT];
-
 
 static void led_setup(int idx, unsigned char* weights)
 {
@@ -113,7 +115,7 @@ void rgb_init(void)
 	P1SEL &= ~0xfd;			// GPIO mode
 	P1SEL2 &= ~0xfd;		// GPIO mode
 	P1REN &= ~0xfd;
-	P1OUT &= ~0xff;			// Switch ON
+	P1OUT &= ~0xfd;			// Switch ON
 }
 
 /* Transform rgb_program to rgb_ring */
@@ -213,7 +215,6 @@ void rgb_blinking(void)
 	}
 	if (need_update)
 		leds_update();
-
 }
 
 void rgb_nosync(void)
@@ -245,6 +246,7 @@ void rgb_nosync(void)
 #pragma vector=TIMER0_A1_VECTOR
 __interrupt void rgb_timer(void)
 {
+
 	static int idx;
 
 	switch(TA0IV)
@@ -263,5 +265,6 @@ __interrupt void rgb_timer(void)
 	if (++idx >= 10)
 		idx = 0;
 
+	ms_cnt++;
 //	_BIC_SR_IRQ(LPM0_bits);
 }
