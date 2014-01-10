@@ -10,7 +10,7 @@
  */
 #include <msp430g2553.h>
 #include "config_lib.h"
-//#include "../common/common.h"
+#include <common.h>
 #include <msplib_common.h>
 #include <thermistor.h>
 #include <leds.h>
@@ -73,8 +73,7 @@ void main(void)
 
 		for (i = 0; i<LEDS_CNT; i++)
 		{
-//			data[i+1] = t[i];
-			data[i+1] = 20 + 10 * i;
+			data[i+1] = t[i];
 			crc += data[i+1];
 		}
 		data[i+1] = crc;

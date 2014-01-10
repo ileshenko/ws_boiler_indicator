@@ -6,16 +6,10 @@
 #include <msp430g2553.h>
 #include "config_lib.h"
 //#include "config.h"
-//#include <common.h>
+#include <common.h>
 #include <msplib_common.h>
 #include <x10.h>
-
 #include "rgb.h"
-//#include <thermistor.h>
-//#include <leds.h>
-//#include <uart.h>
-//#include <string.h>
-
 
 static unsigned char packet[LEDS_CNT+1]; /* Packet received via UART */
 
