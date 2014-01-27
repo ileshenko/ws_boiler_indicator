@@ -47,25 +47,65 @@ void buttons_init(void)
 }
 #endif
 
-static unsigned char data[LEDS_CNT + 2] = {MAGIC_BEGIN, 0, 0, 0, 0, 0, 0xff};
+#define RCB BIT2
+static unsigned short rc_init(void)
+{
+	char is_charged;
+
+	P2SEL &= ~RCB;					// switch to GPIO mode
+	P2SEL2 &= ~RCB;					// switch to GPIO mode
+
+	P2DIR &= ~RCB;					// Set as Input
+	P2REN |= RCB;					// Poll Up/Down Resistor enable
+	P2OUT |= RCB;					// Poll Up
+	P2IE &= ~RCB;					// Interrupt Disabled
+
+	is_charged = P2IN & RCB;
+
+	return is_charged ? 0 : 50*64; // 64 seconds in minute :)
+}
+
+#define TRIACB BIT5
+static void triac_init(void)
+{
+	P2SEL &= ~TRIACB;							// switch to GPIO mode
+	P2SEL2 &= ~TRIACB;							// switch to GPIO mode
+
+	P2DIR |= TRIACB;							// Set as Output
+	P2OUT |= TRIACB;							// Open Drain, "1" for switching off
+}
+
+static unsigned char data[LEDS_CNT + 3] = {MAGIC_BEGIN, 0, 0, 0, 0, 0, 0, 0xff};
 
 void main(void)
 {
 	int i;
 	unsigned char crc;
+	unsigned short heat;
 
 	WDTCTL = WDTPW + WDTHOLD;                 // Stop WDT
 
 	default_state();
+	heat = rc_init();
+
 	clock_init(); /* DCO, MCLK and SMCLK - 1MHz */
 	timer_init();
 	x10tx_init();
 	leds_init();
 	thermistor_init();
+	triac_init();
 
 	leds_hello();
 	for (;;)
 	{
+		if (heat)
+		{
+			if (--heat)
+				P2OUT &= ~TRIACB;
+			else
+				P2OUT |= TRIACB; // Open Drain, "1" for switching off
+		}
+
 		led_toggle();
 		themps_update();
 
@@ -76,6 +116,10 @@ void main(void)
 			data[i+1] = t[i];
 			crc += data[i+1];
 		}
+		data[i+1] = heat >> 6; // 64 seconds in a minute
+		crc += data[i+1];
+		i++;
+
 		data[i+1] = crc;
 		x10tx_putn(data, sizeof(data));
 

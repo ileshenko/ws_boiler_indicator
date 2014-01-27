@@ -11,7 +11,7 @@
 #include <x10.h>
 #include "rgb.h"
 
-static unsigned char packet[LEDS_CNT+1]; /* Packet received via UART */
+static unsigned char packet[LEDS_CNT+2]; /* Packet received via UART */
 
 //static signed char rcv_pos;
 static char is_ready;
@@ -48,8 +48,8 @@ void timer_init(void)
 
 static int is_packet_correct(void)
 {
-	unsigned char *iter= packet;
-	int i = LEDS_CNT;
+	unsigned char *iter = packet;
+	int i = LEDS_CNT+1;
 	char crc = MAGIC_BEGIN;
 
 	is_ready = 0; /* reset flag */
@@ -79,7 +79,7 @@ void x10rx_cb(unsigned char ch)
 	}
 	packet[idx++] = ch;
 
-	if (idx >= LEDS_CNT+1) /* packet includes CRC byte */
+	if (idx >= LEDS_CNT+2) /* packet includes CRC byte */
 	{
 		is_ready = 1;
 		idx = -1;
@@ -88,105 +88,29 @@ void x10rx_cb(unsigned char ch)
 
 void main(void)
 {
-//	int led;
-//	color_t clr;
-//	unsigned int sum, sum_old = 12345;
-//	unsigned char weights[3] = {0,0,0};
-
 	WDTCTL = WDTPW + WDTHOLD;                 // Stop WDT
 
 	default_state();
 	clock_init(); /* DCO, MCLK and SMCLK - 1MHz */
 	timer_init();
 	x10rx_init(x10rx_cb);
-
 	rgb_init();
 
-//	rcv_pos = -1;
 	is_ready = 0;
-//	clr = CLR_R;
-//	weights[clr] = 1;
 	for (;;)
 	{
 		if (is_ready && is_packet_correct())
 		{
-			rgb_update(packet);
+			rgb_temp_update(packet);
+			rgb_heat_update((packet[LEDS_CNT]+9)/10);
 			timeout = 0;
 		}
 
-		if (timeout < 100)
-			rgb_blinking();
-		else
-			rgb_nosync();
+		/* Sync is OK, if delay is less than 10 sec. */
+		rgb_sync_update(timeout < 100);
 
-#if 0
-		if(timeout < 2)
-		{
-			rgb_update(temps);
-#if 0
-			sum = 0;
-			for (led = 0; led < LEDS_CNT; led++)
-				sum += data[led];
+		rgb_do_10hz();
 
-			if (sum != sum_old)
-			{
-				sum_old = sum;
-				for (led = 0; led < LEDS_CNT; led++)
-				{
-//					led_temperature(led, 74 + led * 3);
-					led_temperature(led, data[led]);
-					blinking[led] = 1;
-				}
-				leds_update();
-			}
-#endif
-		}
-		if (timeout < 20)
-		{
-			rgb_blinking();
-#if 0
-			int need_update = 0;
-
-			for (led = 0; led < LEDS_CNT; led++)
-			{
-				unsigned char delta = rgb_program[led][CLR_R] & 0xf0;
-				if (delta && !--blinking[led])
-				{
-					need_update = 1;
-					delta >>= 4;
-					rgb_program[led][CLR_R] ^= 0x8;
-					blinking[led] = rgb_program[led][CLR_R] & 0x8 ? delta : 1;
-				}
-			}
-			if (need_update)
-				leds_update();
-#endif
-		}
-		else
-		{
-			rgb_nosync();
-#if 0
-			if (led >= LEDS_CNT)
-				led = 0;
-
-			weights[clr] <<= 1;
-			if (weights[clr] > 10)
-			{
-				if (++led >= LEDS_CNT)
-				{
-					led = 0;
-					weights[clr] = 0;
-					if (++clr > CLR_B)
-						clr = CLR_R;
-				}
-				weights[clr] = 1;
-			}
-
-			led_setup(led, weights);
-			leds_update();
-#endif
-		}
-#endif
 		_BIS_SR(LPM0_bits + GIE);
 	}
 }
