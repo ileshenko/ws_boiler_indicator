@@ -6,6 +6,8 @@
 #if LEDP == 1
 #define PxDIR  P1DIR
 #define PxOUT P1OUT
+#define PxSEL P1SEL
+#define PxREN P1REN
 #elif LEDP == 2
 #define PxDIR  P2DIR
 #define PxOUT P2OUT
