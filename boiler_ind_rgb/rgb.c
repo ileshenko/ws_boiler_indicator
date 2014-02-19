@@ -34,7 +34,7 @@ typedef union {
 
 static port_map_t rgb_ring[10];
 static char rgb_program[LEDS_CNT][3]; /* color weights */
-static unsigned char prev_temp[LEDS_CNT];
+static unsigned char prev_temp[LEDS_CNT] = {99, 10, 99, 30, 40};
 static char is_synced;
 static unsigned char heat_lvl;
 static unsigned char blinking[LEDS_CNT];
