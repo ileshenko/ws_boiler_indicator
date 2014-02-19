@@ -62,7 +62,7 @@ static unsigned short rc_init(void)
 
 	is_charged = P2IN & RCB;
 
-	return is_charged ? 0 : 50*64; // 64 seconds in minute :)
+	return is_charged ? 50*64 : 0; // 64 seconds in minute :)
 }
 
 #define TRIACB BIT5
